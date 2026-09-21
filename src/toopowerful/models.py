@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Mapping, MutableMapping, Optional, Union
+from typing import Any, List, Mapping, MutableMapping, Optional, Union
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 Headers = MutableMapping[str, str]
@@ -51,10 +51,16 @@ class Response:
     request: PreparedRequest
     elapsed: float = 0.0
     from_cache: bool = False
+    history: List["Response"] = field(default_factory=list)
+    cookies: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
         return 200 <= self.status_code < 400
+
+    @property
+    def is_redirect(self) -> bool:
+        return self.status_code in (301, 302, 303, 307, 308)
 
     @property
     def text(self) -> str:
@@ -73,7 +79,8 @@ class Response:
         return self
 
     def __repr__(self) -> str:
-        return f"<Response [{self.status_code}] {self.url}>"
+        tag = " (cache)" if self.from_cache else ""
+        return f"<Response [{self.status_code}] {self.url}{tag}>"
 
 
 class TooPowerfulError(Exception):
@@ -90,7 +97,19 @@ class TimeoutError(TooPowerfulError):
     pass
 
 
+class TooManyRedirects(TooPowerfulError):
+    pass
+
+
 def join_url(base: Optional[str], url: str) -> str:
     if not base:
         return url
     return urljoin(base if base.endswith("/") else base + "/", url)
+
+
+def header_get(headers: Mapping[str, str], name: str, default: str = "") -> str:
+    lower = name.lower()
+    for k, v in headers.items():
+        if k.lower() == lower:
+            return v
+    return default

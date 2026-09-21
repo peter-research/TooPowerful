@@ -11,7 +11,7 @@ from .retry import Retry
 
 
 class AsyncClient:
-    """Meme API que Client, 100% async (transport dans un thread)."""
+    """Meme API que Client, async (transport via to_thread)."""
 
     def __init__(
         self,
@@ -21,7 +21,11 @@ class AsyncClient:
         retry: Optional[Retry] = None,
         cache: Optional[MemoryCache] = None,
         middleware: Optional[Middleware] = None,
+        auth: Optional[object] = None,
+        cookies: Optional[Mapping[str, str]] = None,
         verify: bool = True,
+        allow_redirects: bool = True,
+        max_redirects: int = 10,
     ) -> None:
         self._sync = Client(
             base_url=base_url,
@@ -30,7 +34,11 @@ class AsyncClient:
             retry=retry,
             cache=cache,
             middleware=middleware,
+            auth=auth,
+            cookies=cookies,
             verify=verify,
+            allow_redirects=allow_redirects,
+            max_redirects=max_redirects,
         )
 
     async def __aenter__(self) -> "AsyncClient":
