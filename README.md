@@ -5,6 +5,7 @@
 Sync + async. Retries. Cache. Middleware. Auth. Parallel. Streaming. **Zero dependencies.**
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![version](https://img.shields.io/badge/version-0.1.0-blue.svg)](#changelog)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](#installation)
 
@@ -28,6 +29,7 @@ print(r.status_code, r.json())
 - [Quickstart](#quickstart)
 - [API](#api)
 - [Comparison](#comparison)
+- [Changelog](#changelog)
 - [Development](#development)
 - [License](#license)
 
@@ -265,7 +267,7 @@ Helpers: `stream(method, url)`, `download(url, path)`, `bulk(operations)`, `map(
 
 ### Middleware & hooks
 
-- `Middleware().use_before(fn).use_after(fn)` or `event_hooks={"request": [...], "response": [...]}` on the client
+- `Middleware().use_before(fn).use_after(fn)` or `event_hooks={"request": [...], "response": [...]} on the client`
 - Ready-made: `add_header`, `request_id`, `log_requests`, `log_timing`
 
 ### Testing
@@ -293,6 +295,22 @@ TooPowerful does not try to be a clone. It targets **one single API** for what p
 - **vs httpx**: TTL/disk cache, native retries with `Retry-After`, `map`/`bulk`, test helpers, zero dependencies (no httpcore / h11).
 
 `0.1.0` — API stabilizing.
+
+---
+
+## Changelog
+
+### 0.1.0
+
+- Auth: Digest (RFC 2617 auto-replay), API key (header/query/cookie), string/tuple/dict shortcuts, callable auth
+- Cache: true-LRU `MemoryCache` with stats + `invalidate()`, persistent `FileCache`
+- Retry: jitter, `Retry-After` support, `on_retry` callback
+- Response: `is_success` / `is_client_error` / `is_server_error`, `links`, `content_type` / `charset` / `apparent_encoding`, `iter_content` / `iter_lines` / `download`
+- Requests: `path_params`, multi-value params, default client params, file-like uploads
+- Transport: proxies + `no_proxy` + env, CA bundle + client certs, streaming, cross-host auth stripping, typed errors (`RequestError`, `ResponseError`, `ConnectionError`, `ProxyError`, `SSLError`)
+- Client: `download` / `bulk` / `stats` / cookie management, `map` with `return_exceptions`, auto `X-Request-ID`, `event_hooks`, injectable transport
+- Async: `max_concurrency` semaphore, `stream` / `download` / `bulk` / `map` parity
+- Testing: `MockClient`, `make_response`, `local_http_server` — 27 offline tests, zero `#` comments in source
 
 ---
 
