@@ -1,4 +1,4 @@
-"""Exemples TooPowerful 0.0.1."""
+"""TooPowerful 0.1.0 examples."""
 
 import toopowerful as tp
 from toopowerful import AsyncClient, BasicAuth, BearerAuth, Client, MemoryCache, Retry
