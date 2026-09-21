@@ -14,22 +14,22 @@ class _Entry:
 
 
 class MemoryCache:
-    """Simple in-memory TTL cache keyed by METHOD + URL."""
+    """In-memory TTL cache keyed by METHOD + URL."""
 
-    def __init__(self, ttl: float = 30.0, max_items: int = 256) -> None:
+    def __init__(self, ttl: float = 30.0, max_items: int = 512) -> None:
         self.ttl = ttl
         self.max_items = max_items
         self._store: dict[str, _Entry] = {}
 
-    def key(self, method: str, url: str) -> str:
-        return f"{method.upper()} {url}"
+    def key(self, method: str, url: str, extra: str = "") -> str:
+        return f"{method.upper()} {url} {extra}".strip()
 
-    def get(self, method: str, url: str) -> Optional[Response]:
-        entry = self._store.get(self.key(method, url))
+    def get(self, method: str, url: str, extra: str = "") -> Optional[Response]:
+        entry = self._store.get(self.key(method, url, extra))
         if not entry:
             return None
         if entry.expires_at < time.monotonic():
-            self._store.pop(self.key(method, url), None)
+            self._store.pop(self.key(method, url, extra), None)
             return None
         cached = entry.response
         return Response(
@@ -40,13 +40,18 @@ class MemoryCache:
             request=cached.request,
             elapsed=0.0,
             from_cache=True,
+            history=[],
+            cookies=dict(cached.cookies),
         )
 
-    def set(self, method: str, url: str, response: Response) -> None:
+    def set(self, method: str, url: str, response: Response, extra: str = "") -> None:
         if len(self._store) >= self.max_items:
             oldest = next(iter(self._store))
             self._store.pop(oldest, None)
-        self._store[self.key(method, url)] = _Entry(response, time.monotonic() + self.ttl)
+        self._store[self.key(method, url, extra)] = _Entry(response, time.monotonic() + self.ttl)
 
     def clear(self) -> None:
         self._store.clear()
+
+    def __len__(self) -> int:
+        return len(self._store)

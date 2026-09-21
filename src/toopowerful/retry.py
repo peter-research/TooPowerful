@@ -11,8 +11,10 @@ class Retry:
     attempts: int = 3
     backoff: float = 0.4
     max_backoff: float = 8.0
-    statuses: Sequence[int] = field(default_factory=lambda: (429, 500, 502, 503, 504))
-    methods: Iterable[str] = field(default_factory=lambda: ("GET", "HEAD", "OPTIONS", "PUT", "DELETE"))
+    statuses: Sequence[int] = field(default_factory=lambda: (408, 429, 500, 502, 503, 504))
+    methods: Iterable[str] = field(
+        default_factory=lambda: ("GET", "HEAD", "OPTIONS", "PUT", "DELETE", "TRACE")
+    )
 
     def should(self, method: str, status: int | None = None, exc: BaseException | None = None) -> bool:
         if method.upper() not in {m.upper() for m in self.methods}:

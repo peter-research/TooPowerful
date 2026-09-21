@@ -9,7 +9,7 @@ AfterHook = Callable[[Response], Response]
 
 
 class Middleware:
-    """Pipeline of before/after hooks — the missing piece of requests."""
+    """Pipeline of before/after hooks."""
 
     def __init__(self) -> None:
         self.before: List[BeforeHook] = []
