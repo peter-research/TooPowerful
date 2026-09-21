@@ -1,8 +1,8 @@
 # TooPowerful
 
-**Client HTTP Python plus puissant que `requests` et `httpx`.**
+**A Python HTTP client more powerful than `requests` and `httpx`.**
 
-Sync + async. Retries. Cache. Middleware. Auth. Parallèle. **Zéro dépendance.**
+Sync + async. Retries. Cache. Middleware. Auth. Parallel. Streaming. **Zero dependencies.**
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -21,52 +21,56 @@ print(r.status_code, r.json())
 
 ---
 
-## Sommaire
+## Contents
 
-- [Pourquoi TooPowerful](#pourquoi-toopowerful)
+- [Why TooPowerful](#why-toopowerful)
 - [Installation](#installation)
 - [Quickstart](#quickstart)
 - [API](#api)
-- [Comparaison](#comparaison)
-- [Développement](#développement)
-- [Licence](#licence)
+- [Comparison](#comparison)
+- [Development](#development)
+- [License](#license)
 
 ---
 
-## Pourquoi TooPowerful
+## Why TooPowerful
 
-`requests` est simple. `httpx` est moderne. **TooPowerful** rassemble les deux et ajoute ce qui manque en natif.
+`requests` is simple. `httpx` is modern. **TooPowerful** brings both together and adds what is natively missing.
 
-| Capacité | requests | httpx | TooPowerful |
+| Capability | requests | httpx | TooPowerful |
 |---|:---:|:---:|:---:|
-| API `get` / `post` / session | oui | oui | oui |
-| Zéro dépendance runtime | non | non | **oui** |
-| Retries + backoff | add-on | add-on | **natif** |
-| Cache GET (TTL) | non | non | **natif** |
-| Middleware before / after | limité | limité | **natif** |
-| Parallèle (`map` / `gather`) | non | partiel | **natif** |
-| Sync + async, même modèle | non | oui | **oui** |
-| Auth Basic / Bearer | oui | oui | **oui** |
-| Cookies de session | oui | oui | **oui** |
-| Redirects + history | oui | oui | **oui** |
-| Multipart / fichiers | oui | oui | **oui** |
-| Timeouts structurés | partiel | oui | **oui** |
+| `get` / `post` / session API | yes | yes | yes |
+| Zero runtime dependencies | no | no | **yes** |
+| Retries + backoff + jitter + `Retry-After` | add-on | add-on | **built-in** |
+| GET cache: memory TTL + disk | no | no | **built-in** |
+| Middleware before / after + event hooks | limited | limited | **built-in** |
+| Parallel (`map` / `gather` / `bulk`) | no | partial | **built-in** |
+| Rate limiting | no | no | **built-in** |
+| Sync + async, same model | no | yes | **yes** |
+| Auth Basic / Bearer / Digest / API key | partial | partial | **yes** |
+| Session cookies | yes | yes | **yes** |
+| Redirects + history + cross-host auth stripping | yes | yes | **yes** |
+| Multipart / file uploads (incl. file-like) | yes | yes | **yes** |
+| Structured timeouts | partial | yes | **yes** |
+| Streaming + `download()` | partial | yes | **yes** |
+| Proxies + `no_proxy` + env support | yes | yes | **yes** |
+| Test helpers (`MockClient`, local server) | no | no | **yes** |
 
-Transport : `urllib` (stdlib). Rien à installer à part Python.
+Transport: `urllib` (stdlib). Nothing to install besides Python.
 
 ---
 
 ## Installation
 
-**Python ≥ 3.9.** Aucune dépendance runtime.
+**Python ≥ 3.9.** No runtime dependencies.
 
-### Depuis GitHub (recommandé)
+### From GitHub (recommended)
 
 ```bash
 pip install git+https://github.com/peter-research/TooPowerful.git
 ```
 
-### Clone + install éditable
+### Clone + editable install
 
 ```bash
 git clone https://github.com/peter-research/TooPowerful.git
@@ -74,14 +78,14 @@ cd TooPowerful
 pip install -e .
 ```
 
-### Avec les outils de dev (pytest)
+### With dev tools (pytest)
 
 ```bash
 pip install -e ".[dev]"
 pytest
 ```
 
-Vérifier :
+Verify:
 
 ```bash
 python -c "import toopowerful as tp; print(tp.__version__)"
@@ -103,7 +107,7 @@ print(r.status_code, r.text[:80])
 tp.post("https://httpbin.org/post", json={"ok": True})
 ```
 
-Mêmes verbes que `requests` : `get`, `post`, `put`, `patch`, `delete`, `head`, `options`, `request`.
+Same verbs as `requests`: `get`, `post`, `put`, `patch`, `delete`, `head`, `options`, `request`.
 
 ### Session + cache + retry + auth
 
@@ -113,7 +117,7 @@ from toopowerful import BearerAuth, Client, MemoryCache, Retry
 with Client(
     base_url="https://httpbin.org",
     timeout=20,
-    retry=Retry(attempts=4, backoff=0.3),
+    retry=Retry(attempts=4, backoff=0.3, jitter=0.2),
     cache=MemoryCache(ttl=30),
     auth=BearerAuth("secret"),
 ) as http:
@@ -122,13 +126,23 @@ with Client(
     print(b.from_cache)
 ```
 
-### Auth Basic
+### Auth: Basic, Digest, API key
 
 ```python
-from toopowerful import BasicAuth, Client
+from toopowerful import ApiKeyAuth, BasicAuth, Client, DigestAuth
 
 http = Client(auth=BasicAuth("user", "pass"))
-# ou : http.get(url, auth=("user", "pass"))
+http.get(url, auth=("user", "pass"))          # tuple shortcut
+http.get(url, auth="Bearer my-token")         # string shortcut
+http.get(url, auth=DigestAuth("user", "pass"))
+http.get(url, auth=ApiKeyAuth("key", query_param="api_key"))
+```
+
+### Path + query params
+
+```python
+http.get("https://api.example.com/users/{id}", path_params={"id": 7})
+http.get("https://api.example.com/search", params={"tag": ["a", "b"]})
 ```
 
 ### Multipart
@@ -143,12 +157,16 @@ Client().post(
 )
 ```
 
-### Parallèle (sync)
+### Parallel (sync)
 
 ```python
 from toopowerful import Client
 
 Client(base_url="https://httpbin.org").map("GET", ["/get", "/headers"])
+Client(base_url="https://httpbin.org").bulk([
+    {"method": "GET", "url": "/get"},
+    {"method": "POST", "url": "/post", "json": {"x": 1}},
+])
 ```
 
 ### Async
@@ -158,7 +176,7 @@ import asyncio
 from toopowerful import AsyncClient
 
 async def main():
-    async with AsyncClient(base_url="https://httpbin.org") as http:
+    async with AsyncClient(base_url="https://httpbin.org", max_concurrency=8) as http:
         r = await http.get("/get")
         batch = await http.gather("GET", ["/uuid", "/headers"])
         print(r.status_code, len(batch))
@@ -175,54 +193,110 @@ r = Client(max_redirects=5).get("https://httpbin.org/redirect/2")
 print(len(r.history), r.url)
 ```
 
+### Streaming + download
+
+```python
+from toopowerful import Client
+
+http = Client(base_url="https://example.com")
+http.download("/big-file.zip", "big-file.zip")
+resp = http.stream("GET", "/big-file.zip")
+for chunk in resp.iter_content(65536):
+    ...
+```
+
+### Disk cache + rate limiting
+
+```python
+from toopowerful import Client, FileCache, RateLimiter
+
+http = Client(
+    cache=FileCache("./.http-cache", ttl=300),
+    limiter=RateLimiter(rate_per_second=5),
+)
+```
+
+### Proxies
+
+```python
+from toopowerful import Client
+
+http = Client(
+    proxies={"https": "http://proxy:8080"},
+    trust_env=True,  # also reads http_proxy/https_proxy/no_proxy
+)
+```
+
 ---
 
 ## API
 
 ### Module
 
-| Symbole | Rôle |
+| Symbol | Role |
 |---|---|
-| `toopowerful.__version__` | `"0.0.1"` |
+| `toopowerful.__version__` | `"0.1.0"` |
 | `request` / `get` / `post` / `put` / `patch` / `delete` / `head` / `options` | one-shot |
-| `Client` | session synchrone |
-| `AsyncClient` | session asynchrone |
+| `Client` | synchronous session |
+| `AsyncClient` | asynchronous session |
 
 ### `Client` / `AsyncClient`
 
-Paramètres constructeur : `base_url`, `headers`, `timeout`, `retry`, `cache`, `middleware`, `auth`, `cookies`, `verify`, `allow_redirects`, `max_redirects`.
+Constructor: `base_url`, `headers`, `params` (defaults merged into every request), `timeout`, `retry`, `cache`, `middleware`, `event_hooks`, `auth`, `cookies`, `verify` (bool or CA bundle path), `cert` (client cert), `proxies`, `trust_env`, `limiter`, `transport` (injectable, for tests), `allow_redirects` / `follow_redirects`, `max_redirects`, `max_concurrency` (async), `request_id` (auto `X-Request-ID`, default on).
 
-Kwargs par requête : `params`, `headers`, `data`, `json`, `content`, `files`, `auth`, `timeout`, `cache`, `allow_redirects`.
+Per-request kwargs: `params`, `path_params`, `headers`, `data`, `json`, `content`, `files`, `auth`, `timeout`, `cache`, `allow_redirects` / `follow_redirects`, `stream`.
+
+Helpers: `stream(method, url)`, `download(url, path)`, `bulk(operations)`, `map(method, urls)`, `gather(method, urls)` (async), `get_cookies()` / `clear_cookies()`, `stats` (`requests`, `retries`, `cache_hits`, `errors`).
 
 ### `Response`
 
-`status_code`, `headers`, `content`, `text`, `url`, `elapsed`, `from_cache`, `ok`, `cookies`, `history`, `is_redirect`, `.json()`, `.raise_for_status()`.
+`status_code`, `headers`, `content`, `text`, `url`, `elapsed`, `from_cache`, `ok`, `is_success`, `is_client_error`, `is_server_error`, `is_redirect`, `cookies`, `history`, `content_type`, `charset`, `apparent_encoding`, `links` (parsed RFC5988 `Link` header), `.json()`, `.raise_for_status()`, `.iter_content(chunk_size)`, `.iter_lines()`, `.download(path)`.
 
 ### Auth, retry, cache
 
-- `BasicAuth(user, password)` ou `auth=("user", "pass")`
-- `BearerAuth(token)`
-- `Retry(attempts=3, backoff=0.4)`
-- `MemoryCache(ttl=30)`
+- `BasicAuth(user, password)` or `auth=("user", "pass")`
+- `BearerAuth(token)` or `auth="Bearer xxx"` or `auth={"token": ...}`
+- `DigestAuth(user, password)` (RFC 2617, auto-replay on 401)
+- `ApiKeyAuth(key)` / `auth={"api_key": ...}` (header, query or cookie)
+- `Retry(attempts=3, backoff=0.4, jitter=0.0, respect_retry_after=True, on_retry=...)`
+- `MemoryCache(ttl=30)` (true LRU + `stats` + `invalidate(pattern)`)
+- `FileCache(dir, ttl=300)` (persistent on-disk cache)
+- `RateLimiter(rate_per_second=5, burst=1)`
+
+### Middleware & hooks
+
+- `Middleware().use_before(fn).use_after(fn)` or `event_hooks={"request": [...], "response": [...]}` on the client
+- Ready-made: `add_header`, `request_id`, `log_requests`, `log_timing`
+
+### Testing
+
+```python
+from toopowerful.testing import MockClient, make_response, local_http_server
+
+mock = MockClient()
+mock.add("GET", "https://api/x", make_response(body={"ok": True}))
+```
+
+Or inject any callable as `Client(transport=...)`, or spin up `local_http_server(routes)` for offline integration tests.
 
 ### Exceptions
 
-`TooPowerfulError`, `HTTPStatusError`, `TimeoutError`, `TooManyRedirects`.
+`TooPowerfulError`, `RequestError`, `HTTPStatusError`, `ResponseError`, `TimeoutError`, `ConnectionError`, `ProxyError`, `SSLError`, `TooManyRedirects`.
 
 ---
 
-## Comparaison
+## Comparison
 
-TooPowerful n’essaie pas d’être un clone. Il vise **une seule API** pour ce que les gens empilent habituellement : `requests` + `urllib3.Retry` + un cache maison + un petit pool.
+TooPowerful does not try to be a clone. It targets **one single API** for what people usually stack: `requests` + `urllib3.Retry` + a homemade cache + a small pool.
 
-- **vs requests** : async, cache, retry, `map`, middleware, zéro dépendance.
-- **vs httpx** : cache TTL, retries natifs, `map`/`gather`, zéro dépendance (pas de httpcore / h11).
+- **vs requests**: async, cache, retry, `map`/`bulk`, middleware, rate limiting, zero dependencies.
+- **vs httpx**: TTL/disk cache, native retries with `Retry-After`, `map`/`bulk`, test helpers, zero dependencies (no httpcore / h11).
 
-Alpha `0.0.1`. API encore mobile.
+`0.1.0` — API stabilizing.
 
 ---
 
-## Développement
+## Development
 
 ```bash
 git clone https://github.com/peter-research/TooPowerful.git
@@ -231,16 +305,16 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Layout :
+Layout:
 
 ```
 src/toopowerful/     # package
-tests/               # pytest
+tests/               # pytest (offline, no external network)
 examples/quickstart.py
 ```
 
 ---
 
-## Licence
+## License
 
 MIT — [peter-research/TooPowerful](https://github.com/peter-research/TooPowerful)
